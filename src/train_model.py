@@ -456,6 +456,6 @@ if __name__ == "__main__":
         trainer.logger.info(
             f"\n*** Finishing train_model pipeline at {datetime.now()} ***"
         )
-
+        mlflow.end_run()
     except Exception as e:
         trainer.logger.error(f"Error in model training pipeline: {str(e)}")
