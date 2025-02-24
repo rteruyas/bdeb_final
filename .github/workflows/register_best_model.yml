@@ -121,24 +121,14 @@ jobs:
                             best_model_name = run_name
                             print(f"  New best model found: {run_name} with {target_metric}: {metric_value}")
                             
-                            # Find the model artifact path
-                            artifacts = mlflow.artifacts.list_artifacts(run_id)
-                            model_artifacts = [a for a in artifacts if a.path.startswith('model')]
-                            
-                            if model_artifacts:
-                                best_model_path = model_artifacts[0].path
-                            else:
-                                # Try to find any .pkl files
-                                all_artifacts = mlflow.artifacts.list_artifacts(run_id, recursive=True)
-                                pkl_artifacts = [a for a in all_artifacts if a.path.endswith('.pkl')]
-                                if pkl_artifacts:
-                                    best_model_path = pkl_artifacts[0].path
+                            # For model registration, we'll use the run ID directly
+                            # No need to search for specific model paths
+                            best_model_path = "model"  # Default MLflow model path
             
             # Download the best model
             if best_run_id and best_model_path:
                 output_dir = Path("best_model")
                 output_dir.mkdir(exist_ok=True)
-                output_file = output_dir / "model.pkl"
                 
                 print(f"\nBest model found:")
                 print(f"  Model: {best_model_name}")
@@ -255,9 +245,10 @@ jobs:
       run: |
         python download_best_model.py
         
-    - name: Upload model as artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: best-model
-        path: best_model/model.pkl
-        retention-days: 30
+    # No longer need to upload as an artifact as we're not downloading the model file
+    # - name: Upload model as artifact
+    #   uses: actions/upload-artifact@v4
+    #   with:
+    #     name: best-model
+    #     path: best_model/model.pkl
+    #     retention-days: 30
