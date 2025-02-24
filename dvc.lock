@@ -81,8 +81,8 @@ stages:
       size: 91
     - path: config/train_model.yaml
       hash: md5
-      md5: d4a52e4cca15199d01fc7e0a2a54074c
-      size: 2776
+      md5: 07427298f2f193fa4da9b036f7731ad9
+      size: 2774
     - path: data/test_data.csv
       hash: md5
       md5: eec9efa43296a83bb069041034684a63
@@ -104,7 +104,7 @@ stages:
         dagshub_repo_owner: rteruyas
         dagshub_uri: bdeb_final
       config/train_model.yaml:
-        train_model.decision_tree.enabled: false
+        train_model.decision_tree.enabled: true
         train_model.decision_tree.param_grid:
           criterion:
           - gini
@@ -136,7 +136,7 @@ stages:
           - 100
           random_state:
           - 42
-        train_model.random_forest.enabled: false
+        train_model.random_forest.enabled: true
         train_model.random_forest.param_grid:
           n_estimators:
           - 50
@@ -161,14 +161,14 @@ stages:
     outs:
     - path: metrics/model_metrics.json
       hash: md5
-      md5: 5bc14880f093023b6a194a5c9b50a398
-      size: 365
+      md5: 9e9f17d78264b16eddf666ba80ebcc33
+      size: 1217
     - path: metrics/training_status.json
       hash: md5
-      md5: 42436f24f85af2edc872c731e8882108
-      size: 247
+      md5: f5c2d57564116ebe7eea949ed080dd96
+      size: 415
     - path: models/
       hash: md5
-      md5: 0c7f73e7717c8fa8ddcb3bdfd98be209.dir
-      size: 912
-      nfiles: 1
+      md5: 6e355c8c9b99c408a7a0711f5a337b40.dir
+      size: 843266
+      nfiles: 3
