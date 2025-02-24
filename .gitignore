@@ -1,0 +1,9 @@
+# Virtual environments 
+
+.venv/ 
+venv/ 
+
+# Compiled sources 
+
+src/__pycache__/ 
+*.pyc 
