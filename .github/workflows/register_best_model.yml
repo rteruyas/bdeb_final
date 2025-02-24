@@ -65,6 +65,7 @@ jobs:
             print("Searching for experiments...")
             # Get all experiments
             experiments = mlflow.search_experiments()
+            print(f"Found {len(experiments)} experiments")
             
             # Track the best model
             best_metric_value = float('-inf')  # For metrics where higher is better (like accuracy)
@@ -84,10 +85,16 @@ jobs:
                 print(f"Checking experiment: {experiment_name}")
                 
                 # Search for runs with names ending in 'final_evaluation'
-                runs = mlflow.search_runs(
-                    experiment_ids=[experiment_id],
-                    filter_string="attributes.run_name LIKE '%final_evaluation'"
-                )
+                try:
+                    runs = mlflow.search_runs(
+                        experiment_ids=[experiment_id],
+                        filter_string="attributes.run_name LIKE '%final_evaluation'"
+                    )
+                    # Print column names for debugging
+                    print(f"  Available columns: {list(runs.columns)}")
+                except Exception as e:
+                    print(f"  Error searching runs: {e}")
+                    continue
                 
                 if len(runs) == 0:
                     print(f"  No final evaluation runs found in {experiment_name}")
@@ -97,12 +104,14 @@ jobs:
                 
                 # Process each run to find the best model
                 for _, run in runs.iterrows():
-                    run_id = run.run_id
+                    run_id = run['run_id']
                     run_name = run['tags.mlflow.runName'] if 'tags.mlflow.runName' in run else run_id
                     
                     # Check if the target metric exists in this run
-                    if target_metric in run.metrics:
-                        metric_value = run.metrics[target_metric]
+                    # Access the metrics as a column in the DataFrame
+                    metric_column = f"metrics.{target_metric}"
+                    if metric_column in run:
+                        metric_value = run[metric_column]
                         print(f"  Run: {run_name}, {target_metric}: {metric_value}")
                         
                         # Compare with the best metric value (assuming higher is better)
@@ -110,6 +119,7 @@ jobs:
                             best_metric_value = metric_value
                             best_run_id = run_id
                             best_model_name = run_name
+                            print(f"  New best model found: {run_name} with {target_metric}: {metric_value}")
                             
                             # Find the model artifact path
                             artifacts = mlflow.artifacts.list_artifacts(run_id)
