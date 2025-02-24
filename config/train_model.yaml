@@ -13,7 +13,7 @@ train_model:
   logistic_regression:
     model_name: 'LogisticRegression'
     enabled: true
-    model_artifact: model.pkl
+    model_artifact: 'model.pkl'
     config_artifacts: ['preprocessing.yaml', 'split_train_test.yaml', 'train_model.yaml']
 
     # Parameter grid for hyperparameter tuning
@@ -37,7 +37,7 @@ train_model:
 ############################################
   decision_tree:
     model_name: 'DecisionTreeClassifier'
-    enabled: false
+    enabled: true
     model_artifact: 'model.pkl'
     config_artifacts: ['preprocessing.yaml', 'split_train_test.yaml', 'train_model.yaml']
 
@@ -61,7 +61,7 @@ train_model:
 ############################################
   random_forest:
     model_name: 'RandomForestClassifier'
-    enabled: false
+    enabled: true
     model_artifact: 'model.pkl'
     config_artifacts: ['preprocessing.yaml', 'split_train_test.yaml', 'train_model.yaml']
 
