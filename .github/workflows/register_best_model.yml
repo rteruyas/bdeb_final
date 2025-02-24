@@ -7,47 +7,33 @@ on:
   # Run on schedule (once a day at midnight UTC)
   # schedule:
   #   - cron: '0 0 * * *'
-    
-  # Or run when experiments are completed (assuming you have a way to trigger this)
-  # For example, you might commit a marker file when experiments finish
-  # push:
-  #   paths:
-  #     - 'experiments/status.complete'
 
 jobs:
   find-and-register-best-model:
     runs-on: ubuntu-latest
     
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.12'
+        python-version: '3.10'
         
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install mlflow pandas
-        # Add any other dependencies your script needs
         
-    - name: Create model downloader script
+    - name: Create model registration script
       run: |
-        cat > download_best_model.py << 'EOL'
+        cat > register_best_model.py << 'EOL'
         import os
         import mlflow
-        import pandas as pd
-        from urllib.parse import urlparse
-        from pathlib import Path
-        import shutil
         from mlflow.tracking import MlflowClient
 
-        def download_best_model():
+        def register_best_model():
             """
             Search for all runs ending with 'final_evaluation' across all experiments,
-            find the best performing model, and download it as 'model.pkl'.
+            find the best performing model based on accuracy, and register it to the MLflow Model Registry.
             """
             # Set MLflow tracking URI from environment variable
             tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
@@ -68,9 +54,8 @@ jobs:
             print(f"Found {len(experiments)} experiments")
             
             # Track the best model
-            best_metric_value = float('-inf')  # For metrics where higher is better (like accuracy)
+            best_metric_value = float('-inf')
             best_run_id = None
-            best_model_path = None
             best_model_name = None
             
             # The metric to compare models
@@ -90,7 +75,6 @@ jobs:
                         experiment_ids=[experiment_id],
                         filter_string="attributes.run_name LIKE '%final_evaluation'"
                     )
-                    # Print column names for debugging
                     print(f"  Available columns: {list(runs.columns)}")
                 except Exception as e:
                     print(f"  Error searching runs: {e}")
@@ -108,7 +92,6 @@ jobs:
                     run_name = run['tags.mlflow.runName'] if 'tags.mlflow.runName' in run else run_id
                     
                     # Check if the target metric exists in this run
-                    # Access the metrics as a column in the DataFrame
                     metric_column = f"metrics.{target_metric}"
                     if metric_column in run:
                         metric_value = run[metric_column]
@@ -120,135 +103,93 @@ jobs:
                             best_run_id = run_id
                             best_model_name = run_name
                             print(f"  New best model found: {run_name} with {target_metric}: {metric_value}")
-                            
-                            # For model registration, we'll use the run ID directly
-                            # No need to search for specific model paths
-                            best_model_path = "model"  # Default MLflow model path
             
-            # Download the best model
-            if best_run_id and best_model_path:
-                output_dir = Path("best_model")
-                output_dir.mkdir(exist_ok=True)
-                
+            # Register the best model
+            if best_run_id:
                 print(f"\nBest model found:")
                 print(f"  Model: {best_model_name}")
                 print(f"  {target_metric}: {best_metric_value}")
                 print(f"  Run ID: {best_run_id}")
                 
-                # Download the model
+                # Register the model directly from the run
                 try:
-                    artifact_uri = f"runs:/{best_run_id}/{best_model_path}"
-                    download_path = mlflow.artifacts.download_artifacts(
-                        artifact_uri=artifact_uri,
-                        dst_path=str(output_dir)
-                    )
-                    
-                    # If the downloaded file is not directly model.pkl, rename it
-                    downloaded_file = Path(download_path)
-                    if downloaded_file.is_dir():
-                        # If it's a directory, find the model file
-                        model_files = list(downloaded_file.glob('**/*.pkl'))
-                        if model_files:
-                            # Copy the first pkl file found
-                            shutil.copy(model_files[0], output_file)
-                            print(f"\nDownloaded and renamed: {model_files[0]} → {output_file}")
-                        else:
-                            # Try MLflow model format (MLmodel file)
-                            mlmodel_files = list(downloaded_file.glob('**/MLmodel'))
-                            if mlmodel_files:
-                                model_dir = mlmodel_files[0].parent
-                                print(f"\nDownloaded MLflow model: {model_dir}")
-                                print(f"You can load this model using: mlflow.pyfunc.load_model('{model_dir}')")
-                            else:
-                                print(f"\nDownloaded artifact directory: {download_path}")
-                                print(f"No .pkl files found in the downloaded artifacts.")
-                    else:
-                        # It's a file, rename it
-                        shutil.copy(downloaded_file, output_file)
-                        print(f"\nDownloaded and renamed: {downloaded_file} → {output_file}")
-                    
-                    print(f"\nBest model saved to: {output_file.absolute()}")
-                    
-                    # Register the model to MLflow Model Registry
                     print(f"\nRegistering model to MLflow Model Registry...")
                     client = MlflowClient()
                     
-                    # Define a model name (you can customize this)
+                    # Define a model name
                     model_name = os.environ.get("MODEL_NAME", "best_model")
                     
+                    # Use the standard model path
+                    model_uri = f"runs:/{best_run_id}/model"
+                    print(f"Using model URI: {model_uri}")
+                    
+                    # Check if model exists in registry
                     try:
-                        # Check if the model already exists in the registry
-                        try:
-                            versions = client.get_latest_versions(model_name)
-                            model_exists = len(versions) > 0
-                        except:
-                            model_exists = False
-                        
-                        # Register the model
+                        existing_models = client.search_registered_models(filter_string=f"name='{model_name}'")
+                        model_exists = len(existing_models) > 0
                         if not model_exists:
-                            # Create a new registered model if it doesn't exist
                             client.create_registered_model(model_name)
                             print(f"Created new registered model: {model_name}")
-                        
-                        # Create a new model version from the run
-                        model_version = mlflow.register_model(
-                            model_uri=f"runs:/{best_run_id}/{best_model_path}",
-                            name=model_name
-                        )
-                        version = model_version.version
-                        print(f"Registered model version: {version}")
-                        
-                        # Transition the model to "Production" stage
-                        client.transition_model_version_stage(
-                            name=model_name,
-                            version=version,
-                            stage="Production"
-                        )
-                        print(f"Model {model_name} version {version} is now in Production stage")
-                        
-                        # Set a description for the model
-                        client.update_model_version(
-                            name=model_name,
-                            version=version,
-                            description=f"Best model with {target_metric}={best_metric_value:.4f} from run: {best_model_name}"
-                        )
-                        
-                        print(f"\nSuccessfully registered model as Production in the MLflow Model Registry")
-                        print(f"Model name: {model_name}")
-                        print(f"Model version: {version}")
-                        print(f"Model {target_metric}: {best_metric_value:.4f}")
-                        print(f"Original run: {best_model_name}")
-                    
                     except Exception as e:
-                        print(f"Error registering model to registry: {e}")
+                        print(f"Note: Error checking if model exists (will try to create): {e}")
+                        try:
+                            client.create_registered_model(model_name)
+                            print(f"Created new registered model: {model_name}")
+                        except Exception as e2:
+                            print(f"Note: Error creating model (it might already exist): {e2}")
                     
+                    # Register the model
+                    print(f"Registering model from run {best_run_id}...")
+                    model_version = mlflow.register_model(
+                        model_uri=model_uri,
+                        name=model_name
+                    )
+                    version = model_version.version
+                    print(f"Successfully registered model version: {version}")
+                    
+                    # Transition to Production
+                    print(f"Setting model to Production stage...")
+                    client.transition_model_version_stage(
+                        name=model_name,
+                        version=version,
+                        stage="Production"
+                    )
+                    print(f"Model {model_name} version {version} is now in Production stage")
+                    
+                    # Set description
+                    client.update_model_version(
+                        name=model_name,
+                        version=version,
+                        description=f"Best model with {target_metric}={best_metric_value:.4f} from run: {best_model_name}"
+                    )
+                    
+                    print(f"\nSUCCESS: Registered model as Production in the MLflow Model Registry")
+                    print(f"Model name: {model_name}")
+                    print(f"Model version: {version}")
+                    print(f"Model {target_metric}: {best_metric_value:.4f}")
+                    print(f"Original run: {best_model_name}")
+                
                 except Exception as e:
-                    print(f"\nError downloading best model: {e}")
+                    print(f"Error registering model: {str(e)}")
+                    print(f"Run ID attempted: {best_run_id}")
+                    print(f"Model URI attempted: {model_uri}")
+                    raise
             else:
                 print(f"\nNo models found with metric '{target_metric}' across all final evaluation runs.")
 
         if __name__ == "__main__":
             try:
-                download_best_model()
+                register_best_model()
             except Exception as e:
                 print(f"Error: {e}")
-                print("\nMake sure MLflow is properly configured with the correct tracking URI.")
                 exit(1)
         EOL
       
-    - name: Run best model finder and register
+    - name: Run model registration
       env:
         MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
         MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
         MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
-        MODEL_NAME: "production_model"  # Customize the registered model name
+        MODEL_NAME: "best_model"
       run: |
-        python download_best_model.py
-        
-    # No longer need to upload as an artifact as we're not downloading the model file
-    # - name: Upload model as artifact
-    #   uses: actions/upload-artifact@v4
-    #   with:
-    #     name: best-model
-    #     path: best_model/model.pkl
-    #     retention-days: 30
+        python register_best_model.py
