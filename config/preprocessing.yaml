@@ -1,0 +1,27 @@
+##################################
+### preprocessing
+##################################
+
+preprocessing:
+  # input file for the cleanup_dataset.py script
+  input_file: "raw_data.csv"
+
+  # output file for the cleanup_dataset.py script
+  output_file: "processed_data.csv"
+
+  # columns to drop
+  drop_columns: ["udi","product_id","twf","hdf","pwf","osf","rnf"]
+
+  # target column
+  target_column: "machine_failure"
+
+  # missing values strategy
+  missing_values_strategy: "drop"
+
+  # correlation threshold
+  correlation_threshold: 0.85
+
+  # encode categorical variables with drop_first
+  encode_categorical_drop_first: True
+
+  

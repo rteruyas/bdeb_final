@@ -1,0 +1,80 @@
+train_model:
+
+  input_test_file: test_data.csv
+  input_train_file: train_data.csv
+  target_column: target
+
+  # Model selection
+############################################
+# Logistic Regression model
+############################################
+  logistic_regression:
+    model_name: 'LogisticRegression'
+    enabled: true
+    model_artifact: model.pkl
+    config_artifacts: ['preprocessing.yaml', 'split_train_test.yaml', 'train_model.yaml']
+
+    # Parameter grid for hyperparameter tuning
+    param_grid:
+      penalty: ['l1', 'l2', 'elasticnet'] # ['l1', 'l2', 'elasticnet', 'none']
+      l1_ratio: [0.5]
+      C: [100]                            # [0.01, 0.1, 1.0, 10.0, 100.0]
+      solver: ['saga', 'lbfgs']           # ['newton-cg', 'lbfgs', 'liblinear', 'sag', 'saga']
+      max_iter: [100]                     # [100, 200, 300, 500]
+      random_state: [42]
+    
+    # Hyperparameter tuning settings 
+    tuning:
+      cv: 5
+      n_jobs: -1
+      scoring: accuracy
+
+
+############################################
+# Decision Tree model
+############################################
+  decision_tree:
+    model_name: 'DecisionTreeClassifier'
+    enabled: true
+    model_artifact: 'model.pkl'
+    config_artifacts: ['preprocessing.yaml', 'split_train_test.yaml', 'train_model.yaml']
+
+    # Parameter grid for hyperparameter tuning
+    param_grid:
+      criterion: ['gini', 'entropy']
+      max_depth: [3, 5]                             #[3, 5, 7, 10, None]
+      min_samples_split: [2, 5]                     #[2, 5, 10]
+      min_samples_leaf: [1]                         #[1, 2, 4]
+      random_state: [42]
+    
+    # Hyperparameter tuning settings
+    tuning:
+      scoring: 'accuracy'
+      cv: 5
+      n_jobs: -1
+
+
+############################################
+# Random Forest Model
+############################################
+  random_forest:
+    model_name: 'RandomForestClassifier'
+    enabled: true
+    model_artifact: 'model.pkl'
+    config_artifacts: ['preprocessing.yaml', 'split_train_test.yaml', 'train_model.yaml']
+
+    # Parameter grid for hyperparameter tuning
+    param_grid:
+      n_estimators: [50]                    # [50, 100, 200]
+      criterion: ['gini', 'entropy']        # ['gini', 'entropy']
+      max_depth: [3, 10]                    # [3, 5, 7, 10, None]
+      min_samples_split: [2, 5, 10]         # [2, 5, 10]
+      min_samples_leaf: [4]                 # [1, 2, 4]       
+      max_features: ['sqrt', 'log2']        # ['sqrt', 'log2']
+      random_state: [42]
+    
+    # Hyperparameter tuning settings
+    tuning:
+      scoring: 'accuracy'
+      cv: 5
+      n_jobs: -1
