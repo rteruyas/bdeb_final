@@ -1,9 +1,13 @@
 # Virtual environments 
-
 .venv/ 
 venv/ 
 
-# Compiled sources 
+# Models 
+/models
 
+# Compiled sources 
 src/__pycache__/ 
 *.pyc 
+
+# Other temp files
+tmp/

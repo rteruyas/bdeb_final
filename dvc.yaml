@@ -1,0 +1,71 @@
+stages:
+  preprocess:
+    cmd: python src/preprocessing.py
+    deps:
+      - src/utils/path_utils.py
+      - src/preprocessing.py
+      - config/preprocessing.yaml
+      - data/raw_data.csv
+    params:
+      - config/preprocessing.yaml:
+          - preprocessing.drop_columns
+          - preprocessing.target_column
+          - preprocessing.missing_values_strategy
+          - preprocessing.correlation_threshold
+          - preprocessing.encode_categorical_drop_first
+    outs:
+      - data/processed_data.csv:
+          cache: true     # DVC will store a copy of this file in its internal cache
+          persist: false   # DVC will not store a copy of this file in the remote storage   
+  
+  split:
+    cmd: python src/split_train_test.py
+    deps:
+      - src/utils/path_utils.py    
+      - src/split_train_test.py
+      - config/split_train_test.yaml
+      - data/processed_data.csv
+    params:
+      - config/split_train_test.yaml:
+          - split_train_test.target_column
+          - split_train_test.test_size
+          - split_train_test.random_state
+          - split_train_test.stratify
+    outs:
+      - data/train_data.csv:
+          cache: true
+          persist: false   # DVC will not store a copy of this file in the remote storage
+      - data/test_data.csv:
+          cache: true
+          persist: false   # DVC will not store a copy of this file in the remote storage
+
+  train:
+    cmd: python src/train_model.py
+    deps:
+      - src/utils/path_utils.py    
+      - src/train_model.py
+      - config/train_model.yaml
+      - config/general.yaml
+      - data/test_data.csv
+      - data/train_data.csv 
+    params:
+      - config/train_model.yaml:
+          - train_model.target_column
+          - train_model.logistic_regression.enabled
+          - train_model.logistic_regression.param_grid
+          - train_model.decision_tree.enabled
+          - train_model.decision_tree.param_grid
+          - train_model.random_forest.enabled
+          - train_model.random_forest.param_grid
+      - config/general.yaml:
+          - dagshub_repo_owner
+          - dagshub_uri
+    outs:
+      - models/:
+          persist: true
+          cache: true
+    metrics:
+      - metrics/model_metrics.json:  # Add metrics tracking
+          cache: true
+      - metrics/training_status.json:  # Track which models were actually trained
+          cache: true

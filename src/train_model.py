@@ -62,23 +62,23 @@ class ModelTrainer:
 
     def get_enabled_models(self):
         enabled_models = []
-        
+
         # Get train_model section from config
-        train_model_config = self.config.get('train_model', {})
-        
+        train_model_config = self.config.get("train_model", {})
+
         # Filter out non-model configuration keys
-        skip_keys = ['input_test_file', 'input_train_file', 'target_column']
-        
+        skip_keys = ["input_test_file", "input_train_file", "target_column"]
+
         # Iterate through model configurations
         for model_type, model_config in train_model_config.items():
             # Skip non-model configuration entries
             if model_type in skip_keys:
                 continue
-                
+
             # Check if model config is a dictionary and is enabled
-            if isinstance(model_config, dict) and model_config.get('enabled', False):
+            if isinstance(model_config, dict) and model_config.get("enabled", False):
                 enabled_models.append(model_type)
-                
+
         return enabled_models
 
     def _setup_logging(self):
@@ -321,6 +321,55 @@ class ModelTrainer:
             pickle.dump(self.best_models[model_type], file)
         self.logger.info(f"Best {model_type} model saved to {model_path}")
 
+    def save_metrics_and_status(self):
+        """Save model metrics and training status to JSON files"""
+        # Create metrics directory if it doesn't exist
+        metrics_path = f"{get_project_root()}\\metrics"
+        os.makedirs(metrics_path, exist_ok=True)
+
+        # Prepare model metrics dictionary
+        model_metrics = {}
+        for model_type in self.best_models:
+            if model_type in self.best_models:
+                y_pred = self.best_models[model_type].predict(self.X_test)
+                model_metrics[model_type] = {
+                    "accuracy": float(accuracy_score(self.y_test, y_pred)),
+                    "precision": float(
+                        precision_score(self.y_test, y_pred, zero_division=0)
+                    ),
+                    "recall": float(recall_score(self.y_test, y_pred, zero_division=0)),
+                    "f1_score": float(f1_score(self.y_test, y_pred)),
+                    "best_parameters": self.best_params[model_type],
+                }
+
+        # Save model metrics
+        metrics_file = (
+            f"{metrics_path}\\{self.config['train_model']['model_metrics_file']}"
+        )
+        with open(metrics_file, "w") as f:
+            json.dump(model_metrics, f, indent=4)
+        self.logger.info(f"Model metrics saved to {metrics_file}")
+
+        # Prepare training status dictionary
+        enabled_models = self.get_enabled_models()
+        training_status = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "models_enabled": enabled_models,
+            "models_trained": list(self.best_models.keys()),
+            "training_successful": {
+                model_type: model_type in self.best_models
+                for model_type in enabled_models
+            },
+        }
+
+        # Save training status
+        status_file = (
+            f"{metrics_path}\\{self.config['train_model']['training_status_file']}"
+        )
+        with open(status_file, "w") as f:
+            json.dump(training_status, f, indent=4)
+        self.logger.info(f"Training status saved to {status_file}")
+
     def _log_final_evaluation(self, model_type):
         """Log final evaluation for best model of a specific type"""
         if model_type not in self.best_models or model_type not in self.experiments:
@@ -392,8 +441,11 @@ if __name__ == "__main__":
         # Train each enabled model
         available_models = trainer.get_enabled_models()
         for model_type in available_models:
-            trainer.logger.info(f"Training enabled model: {model_type}")   
+            trainer.logger.info(f"Training enabled model: {model_type}")
             trainer.train_model(model_type)
+
+        # Save metrics and training status
+        trainer.save_metrics_and_status()
 
         # Log final results
         trainer.logger.info(f"\n{'='*50}\nTraining pipeline completed\n{'='*50}")
