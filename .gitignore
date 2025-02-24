@@ -12,3 +12,6 @@ src/__pycache__/
 # Other temp files
 tmp/
 troubleshooting/
+
+# keys
+config/credentials.yaml
