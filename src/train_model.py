@@ -25,7 +25,7 @@ class ModelTrainer:
     def __init__(self, config_file, general_config):
         """Initialize ModelTrainer with configuration."""
         self.logger = self._setup_logging()
-        self.config = self._load_general_config(config_file) if config_file else None
+        self.config = self._load_config(config_file) if config_file else None
         self.general_config = (
             self._load_config(general_config) if general_config else None
         )
@@ -97,17 +97,6 @@ class ModelTrainer:
             return config
         except Exception as e:
             self.logger.error(f"Error loading config file: {e}")
-            raise
-
-    def _load_general_config(self, config_file):
-        """Load general configuration from a YAML file"""
-        try:
-            with open(config_file, "r") as file:
-                general = yaml.safe_load(file)
-            self.logger.info(f"Successfully loaded general_config from {config_file}")
-            return general
-        except Exception as e:
-            self.logger.error(f"Error loading general_config file: {e}")
             raise
 
     def load_data(self):

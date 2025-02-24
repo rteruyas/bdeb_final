@@ -1,3 +1,11 @@
 # dagshub configuration
 dagshub_repo_owner: rteruyas
 dagshub_uri: bdeb_final #test_mlflow
+
+# mlflow configuration
+mlflow_uri: 'https://dagshub.com/${dagshub_repo_owner}/${dagshub_uri}.mlflow'
+
+# s3 model store
+s3_model_store_bucket: bdeb-model-store
+s3_test_folder: test
+s3_prod_folder: prod
