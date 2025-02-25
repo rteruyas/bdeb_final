@@ -1,4 +1,4 @@
-# Predictive Maintenance ML Pipeline (AI4I dataset)
+# Pipeline de Machine Learning pour la Maintenance Prédictive (dataset AI4I)
 
 ![Maintenance](https://img.shields.io/badge/Maintenance-Active-green.svg)
 ![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)
@@ -7,170 +7,171 @@
 ![docker](https://img.shields.io/badge/docker-257bd6?style=for-the-badge&logo=docker&logoColor=white)
 
 
-A complete end-to-end machine learning pipeline for predictive maintenance using the AI4I 2020 dataset.
+Un pipeline complet de machine learning de bout en bout pour la maintenance prédictive utilisant le jeu de données AI4I 2020.  
+Collège Bois de Boulogne - 2025 
 
-## Overview
+## Aperçu
 
-This project implements a production-ready ML pipeline for predicting machine failures using the AI4I 2020 Predictive Maintenance dataset. The pipeline handles everything from data preprocessing to model deployment with a focus on reproducibility, scalability, and continuous integration.
+Ce projet implémente un pipeline de machine learning prêt pour la production pour prédire les défaillances des machines en utilisant le jeu de données AI4I 2020 de maintenance prédictive. Le pipeline gère tout, de la préparation des données au déploiement du modèle, en mettant l'accent sur la reproductibilité, l'évolutivité et l'intégration continue.
 
-### Key Features
+### Caractéristiques Principales
 
-- **Data Version Control**: Full dataset and model versioning using DVC
-- **CI/CD Pipeline**: Automated testing and deployment with GitHub Actions
-- **Cloud Infrastructure**: AWS S3 for storage and model serving
-- **Interactive UI**: Streamlit dashboard for model exploration
-- **API Service**: FastAPI endpoint for real-time predictions
-- **MLOps Best Practices**: Reproducible experiments, model tracking, and monitoring
+- **Contrôle de Version des Données** : Versionnement complet des données et des modèles avec DVC
+- **Pipeline CI/CD** : Tests automatisés et déploiement avec GitHub Actions
+- **Infrastructure Cloud** : AWS S3 pour le stockage et la diffusion des modèles
+- **Interface Interactive** : Tableau de bord Streamlit pour l'exploration des modèles
+- **Service API** : Point d'accès FastAPI pour les prédictions en temps réel
+- **Bonnes Pratiques MLOps** : Expériences reproductibles, suivi et surveillance des modèles
 
-## Project Structure
+## Structure du Projet
 
 ```	
-├── .github/                     			# GitHub Actions workflows
+├── .github/                     			# Workflows GitHub Actions
 │   └── workflows/                          
-│       ├── register_and_upload_model.yml	# Register best model and upload it to s3 model store
-├── config/                      			# Configuration files
-│   ├── general.yaml             			# General project configuration
-│   ├── preprocessing.yaml       			# Preprocessing parameters
-│   ├── split_train_test.yaml    			# Train-test split parameters
-│   └── train_model.yaml         			# Model training parameters
-├── data/                        			# Data directory (DVC-tracked)
-│   ├── raw_data.csv             			# Original AI4I 2020 dataset
-├── metrics/                     			# Model metrics (DVC-tracked)
-│   ├── model_metrics.json       			# Performance metrics for all models
-│   └── training_status.json     			# Training metadata
-├── models/                      			# Trained models (DVC-tracked)
-├── notebooks/                   			# Jupyter notebooks for exploration
-├── src/                         			# Source code
-│   ├── dashboard/               			# Streamlit dashboard
-│   │   └── app.py               			# Dashboard implementation
-│   ├── utils/                   			# Utility functions
-│   │   └── path_utils.py        			# Path management
-│   ├── preprocessing.py         			# Data preprocessing pipeline
-│   ├── split_train_test.py      			# Data splitting logic
-│   └── train_model.py           			# Model training and evaluation
-├── .dvcignore                   			# Files to ignore in DVC
-├── .gitignore                   			# Files to ignore in Git
-├── dvc.yaml                     			# DVC pipeline definition
-├── dvc.lock                     			# DVC pipeline lock file
-├── requirements.txt             			# Python dependencies
-└── README.md                    			# This file
+│       ├── register_and_upload_model.yml	# Enregistrer le meilleur modèle et le télécharger dans le stockage s3
+├── config/                      			# Fichiers de configuration
+│   ├── general.yaml             			# Configuration générale du projet
+│   ├── preprocessing.yaml       			# Paramètres de prétraitement
+│   ├── split_train_test.yaml    			# Paramètres de division train-test
+│   └── train_model.yaml         			# Paramètres d'entraînement du modèle
+├── data/                        			# Répertoire de données (suivi par DVC)
+│   ├── raw_data.csv             			# Jeu de données original AI4I 2020
+├── metrics/                     			# Métriques du modèle (suivies par DVC)
+│   ├── model_metrics.json       			# Métriques de performance pour tous les modèles
+│   └── training_status.json     			# Métadonnées d'entraînement
+├── models/                      			# Modèles entraînés (suivis par DVC)
+├── notebooks/                   			# Notebooks Jupyter pour l'exploration
+├── src/                         			# Code source
+│   ├── dashboard/               			# Tableau de bord Streamlit
+│   │   └── app.py               			# Implémentation du tableau de bord
+│   ├── utils/                   			# Fonctions utilitaires
+│   │   └── path_utils.py        			# Gestion des chemins
+│   ├── preprocessing.py         			# Pipeline de prétraitement des données
+│   ├── split_train_test.py      			# Logique de division des données
+│   └── train_model.py           			# Entraînement et évaluation des modèles
+├── .dvcignore                   			# Fichiers à ignorer dans DVC
+├── .gitignore                   			# Fichiers à ignorer dans Git
+├── dvc.yaml                     			# Définition du pipeline DVC
+├── dvc.lock                     			# Fichier de verrouillage du pipeline DVC
+├── requirements.txt             			# Dépendances Python
+└── README.md                    			# Ce fichier
 ```
 
-## Dataset
+## Jeu de Données
 
-The [AI4I 2020 Predictive Maintenance Dataset](https://archive.ics.uci.edu/ml/datasets/AI4I+2020+Predictive+Maintenance+Dataset) represents synthetic data that mimics real predictive maintenance sensor data from industrial equipment. It includes:
+Le [Jeu de Données AI4I 2020 pour la Maintenance Prédictive](https://archive.ics.uci.edu/ml/datasets/AI4I+2020+Predictive+Maintenance+Dataset) représente des données synthétiques qui imitent les données réelles de capteurs de maintenance prédictive d'équipements industriels. Il comprend :
 
-- Process measurements (temperature, pressure, etc.)
-- Machine settings
-- Failure types and indicators
-- Machine type/age information
+- Mesures de processus (température, pression, etc.)
+- Réglages des machines
+- Types et indicateurs de défaillance
+- Informations sur le type et l'âge des machines
 
-The goal is to predict when machines will fail, enabling proactive maintenance to prevent costly downtime.
+L'objectif est de prédire quand les machines tomberont en panne, permettant une maintenance proactive pour éviter des temps d'arrêt coûteux.
 
-## Getting Started
+## Premiers Pas
 
-### Prerequisites
+### Prérequis
 
-- Python 3.9+ (recommended 3.12)
+- Python 3.9+ (recommandé 3.12)
 - Git
-- AWS CLI configured with appropriate permissions
-- Docker (optional, for containerized deployment)
+- AWS CLI configuré avec les permissions appropriées
+- Docker (optionnel, pour le déploiement conteneurisé)
 
 ### Installation
 
-1. Clone the repository:
+1. Cloner le dépôt :
 
 ```bash
 git clone https://github.com/rteruyas/bdeb_final.git 
 cd bdeb_final
 ```
 
-2. Create and activate a virtual environment:
+2. Créer et activer un environnement virtuel :
 
 ```bash
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+source .venv/bin/activate  # Sur Windows : .venv\Scripts\activate
 ```
 
-3. Install dependencies:
+3. Installer les dépendances :
 
 ```bash
 python -m pip install --upgrade pip 
 pip install -r requirements.txt
 ```
 
-4. Set up DVC with S3:
+4. Configurer DVC avec S3 :
 
 ```bash
 dvc remote add -d s3remote s3://your-bucket-name/dvc-storage
 ```
 
-5. Pull data and models:
+5. Récupérer les données et les modèles :
 
 ```bash
 dvc pull
 ```
 
-### Running the Pipeline
+### Exécuter le Pipeline
 
-To execute the complete ML pipeline:
+Pour exécuter le pipeline ML complet :
 
 ```bash
 dvc repro
 ```
 
-This will:
-1. Preprocess the raw data
-2. Split data into training and test sets
-3. Train and evaluate multiple models
-4. Track metrics and models into mlflow (provided by dagshub)
+Cela va :
+1. Prétraiter les données brutes
+2. Diviser les données en ensembles d'entraînement et de test
+3. Entraîner et évaluer plusieurs modèles
+4. Suivre les métriques et les modèles dans mlflow (fourni par dagshub)
 
-To run a specific stage:
+Pour exécuter une étape spécifique :
 
 ```bash
-dvc repro <stage_name>  # e.g., dvc repro train
+dvc repro <nom_de_l_étape>  # par exemple, dvc repro train
 ```
 
-## CI/CD Pipeline
+## Pipeline CI/CD
 
-This project uses GitHub Actions for CI/CD:
+Ce projet utilise GitHub Actions pour CI/CD :
 
-- **Continuous Integration**: Runs tests, linting, and generates metrics on each pull request
-- **Continuous Deployment**: Automatically deploys the latest model and services when changes are merged to main
+- **Intégration Continue** : Exécute des tests, du linting, et génère des métriques sur chaque pull request
+- **Déploiement Continu** : Déploie automatiquement le dernier modèle et les services lorsque des changements sont fusionnés dans la branche principale
 
-The workflows are defined in `.github/workflows/`.
+Les workflows sont définis dans `.github/workflows/`.
 
-## AWS Infrastructure
+## Infrastructure AWS
 
-Key AWS components:
+Composants AWS clés :
 
-- **S3**: Stores DVC files, trained models, and deployment artifacts
-- **ECR**: Hosts Docker images for services
+- **S3** : Stocke les fichiers DVC, les modèles entraînés et les artefacts de déploiement
+- **ECR** : Héberge les images Docker pour les services
 
-## Development
+## Développement
 
-### Adding New Models
+### Ajout de Nouveaux Modèles
 
-1. Update `config/train_model.yaml` with your model's configuration
-2. Add model implementation to `src/train_model.py`
-3. Run `dvc repro train` to train and evaluate your model
+1. Mettre à jour `config/train_model.yaml` avec la configuration de votre modèle
+2. Ajouter l'implémentation du modèle à `src/train_model.py`
+3. Exécuter `dvc repro train` pour entraîner et évaluer votre modèle
 
-### Experiment Tracking
+### Suivi des Expériences
 
-To compare different experiments:
+Pour comparer différentes expériences :
 
 ```bash
 dvc metrics show
 dvc metrics diff
 ```
 
-## License
+## Licence
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+Ce projet est sous licence MIT - voir le fichier LICENSE pour plus de détails.
 
-## Acknowledgments
+## Remerciements
 
-- The [AI4I 2020 Predictive Maintenance Dataset](https://archive.ics.uci.edu/ml/datasets/AI4I+2020+Predictive+Maintenance+Dataset) creators
-- [DVC](https://dvc.org/) for data version control
-- [FastAPI](https://fastapi.tiangolo.com/) for API development
-- [Streamlit](https://streamlit.io/) for dashboard creation
+- Les créateurs du [Jeu de Données AI4I 2020 pour la Maintenance Prédictive](https://archive.ics.uci.edu/ml/datasets/AI4I+2020+Predictive+Maintenance+Dataset)
+- [DVC](https://dvc.org/) pour le contrôle de version des données
+- [FastAPI](https://fastapi.tiangolo.com/) pour le développement d'API
+- [Streamlit](https://streamlit.io/) pour la création de tableaux de bord
