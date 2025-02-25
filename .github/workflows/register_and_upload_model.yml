@@ -42,11 +42,6 @@ jobs:
                 mlflow.set_tracking_uri(tracking_uri)
                 print(f"Using MLflow tracking URI: {tracking_uri}")
             
-            # Set authentication if needed
-            if "MLFLOW_TRACKING_USERNAME" in os.environ and "MLFLOW_TRACKING_PASSWORD" in os.environ:
-                os.environ["MLFLOW_TRACKING_TOKEN"] = f"{os.environ['MLFLOW_TRACKING_USERNAME']}:{os.environ['MLFLOW_TRACKING_PASSWORD']}"
-                print("Using authentication from environment variables")
-            
             print("Searching for experiments...")
             experiments = mlflow.search_experiments()
             print(f"Found {len(experiments)} experiments")
@@ -86,8 +81,10 @@ jobs:
                 
                 # Process each run to find the best model
                 for _, run in runs.iterrows():
+                    #print(f'Current run values: {run}')
                     run_id = run['run_id']
                     run_name = run['tags.mlflow.runName'] if 'tags.mlflow.runName' in run else run_id
+                    artifact_uri = run['artifact_uri']
                     
                     # Check if the target metric exists in this run
                     metric_column = f"metrics.{target_metric}"
@@ -100,6 +97,7 @@ jobs:
                             best_metric_value = metric_value
                             best_run_id = run_id
                             best_model_name = run_name
+                            best_artifact_uri = artifact_uri
                             print(f"  New best model found: {run_name} with {target_metric}: {metric_value}")
             
             # Register the best model if found
@@ -108,6 +106,7 @@ jobs:
                 print(f"  Model: {best_model_name}")
                 print(f"  {target_metric}: {best_metric_value}")
                 print(f"  Run ID: {best_run_id}")
+                print(f"  Artifact uri: {best_artifact_uri}")
                 
                 # Register the model
                 try:
@@ -121,8 +120,35 @@ jobs:
                     model_uri = f"runs:/{best_run_id}/model"
                     print(f"Using model URI: {model_uri}")
                     
-                    # Register the model
+                    # Check if this run is already registered as a model version
+                    print(f"Checking if run {best_run_id} is already registered...")
                     try:
+                        existing_versions = client.search_model_versions(f"run_id='{best_run_id}'")
+                        if existing_versions:
+                            # Run is already registered
+                            existing_model = existing_versions[0]
+                            model_name = existing_model.name
+                            version = existing_model.version
+                            print(f"Model from run {best_run_id} is already registered as {model_name} version {version}")
+                            
+                            return best_run_id, model_name, version
+                        else:
+                            print(f"Run {best_run_id} is not yet registered. Proceeding with registration.")
+                            
+                            # Register the model
+                            model_version = mlflow.register_model(
+                                model_uri=model_uri,
+                                name=model_name
+                            )
+                            version = model_version.version
+                            print(f"Successfully registered model {model_name} version: {version}")
+                                                
+                            return best_run_id, model_name, version
+                    except Exception as e:
+                        print(f"Error checking if model is already registered: {str(e)}")
+                        print("Proceeding with regular registration")
+                        
+                        # Register the model normally
                         model_version = mlflow.register_model(
                             model_uri=model_uri,
                             name=model_name
@@ -130,19 +156,15 @@ jobs:
                         version = model_version.version
                         print(f"Successfully registered model version: {version}")
                         
-                        # Transition to Production
-                        client.transition_model_version_stage(
-                            name=model_name,
-                            version=version,
-                            stage="Production"
+                        # Register the model normally without promotion
+                        model_version = mlflow.register_model(
+                            model_uri=model_uri,
+                            name=model_name
                         )
-                        print(f"Model {model_name} version {version} is now in Production stage")
+                        version = model_version.version
+                        print(f"Successfully registered model version: {version}")
                         
                         return best_run_id, model_name, version
-                        
-                    except Exception as e:
-                        print(f"Error registering model: {str(e)}")
-                        raise
                         
                 except Exception as e:
                     print(f"Error during model registration: {str(e)}")
@@ -151,97 +173,22 @@ jobs:
                 print(f"\nNo models found with metric '{target_metric}' across all final evaluation runs.")
                 return None, None, None
 
-        def find_and_download_model_file(run_id):
-            """Find and download model.pkl file from the run artifacts"""
-            if not run_id:
-                return None
-                
-            # Create a temporary directory
-            with tempfile.TemporaryDirectory() as temp_dir:
-                temp_path = Path(temp_dir)
-                output_file = temp_path / "model.pkl"
-                
-                print(f"\nSearching for model file in run {run_id}...")
+            def find_and_download_model_file(run_id):
+                """Find and download model.pkl file from the run artifacts"""
+                if not run_id:
+                    return None
                 
                 try:
-                    # List all artifacts at root level
-                    artifacts = mlflow.artifacts.list_artifacts(run_id)
-                    print(f"Found {len(artifacts)} artifacts at root level")
-                    
-                    # Search for PKL files
-                    pkl_path = None
-                    
-                    # First search at root level
-                    for artifact in artifacts:
-                        if artifact.path.endswith('.pkl'):
-                            pkl_path = artifact.path
-                            print(f"Found PKL file at root: {pkl_path}")
-                            break
-                    
-                    # Then search in model directory
-                    if not pkl_path:
-                        for artifact in artifacts:
-                            if artifact.is_dir and artifact.path == 'model':
-                                model_contents = mlflow.artifacts.list_artifacts(run_id, 'model')
-                                for item in model_contents:
-                                    if item.path.endswith('.pkl'):
-                                        pkl_path = item.path
-                                        print(f"Found PKL file in model dir: {pkl_path}")
-                                        break
-                    
-                    # Download the PKL file if found
-                    if pkl_path:
-                        artifact_uri = f"runs:/{run_id}/{pkl_path}"
-                        download_path = mlflow.artifacts.download_artifacts(
-                            artifact_uri=artifact_uri,
-                            dst_path=str(temp_path)
-                        )
+                    client = MlflowClient()
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        temp_path = Path(temp_dir)
+                        download_path = client.download_artifacts(run_id, "final_model/model.pkl", dst_path=str(temp_path))
                         downloaded_file = Path(download_path)
-                        
-                        # Copy to output_file if needed
-                        if downloaded_file.name != "model.pkl":
-                            shutil.copy(downloaded_file, output_file)
-                            print(f"Renamed {downloaded_file.name} to model.pkl")
-                        else:
-                            output_file = downloaded_file
-                        
-                        print(f"Successfully downloaded model file to: {output_file}")
-                        
-                        # Read the file into memory
-                        with open(output_file, 'rb') as f:
+                        with open(downloaded_file, 'rb') as f:
                             model_data = f.read()
-                        
-                        return model_data
-                    else:
-                        print("No PKL file found directly. Trying to download model directory...")
-                        try:
-                            # Try to download the model directory
-                            model_path = mlflow.artifacts.download_artifacts(
-                                artifact_uri=f"runs:/{run_id}/model",
-                                dst_path=str(temp_path)
-                            )
-                            model_dir = Path(model_path)
-                            
-                            # Search for PKL files in the model directory
-                            pkl_files = list(model_dir.glob('**/*.pkl'))
-                            if pkl_files:
-                                # Copy the first PKL file to model.pkl
-                                shutil.copy(pkl_files[0], output_file)
-                                print(f"Found and copied PKL file to model.pkl: {pkl_files[0]}")
-                                
-                                # Read the file into memory
-                                with open(output_file, 'rb') as f:
-                                    model_data = f.read()
-                                
-                                return model_data
-                            else:
-                                print("No PKL files found in model directory")
-                                return None
-                        except Exception as e:
-                            print(f"Error downloading model directory: {e}")
-                            return None
+                            return model_data
                 except Exception as e:
-                    print(f"Error finding model file: {e}")
+                    print(f"Error downloading model file: {e}")
                     return None
 
         def upload_to_s3(model_data):
@@ -252,7 +199,7 @@ jobs:
                 
             try:
                 s3_bucket = os.environ.get("S3_BUCKET_NAME")
-                s3_key = os.environ.get("S3_KEY_PREFIX", "models") + "/model.pkl"
+                s3_key = os.environ.get("S3_KEY_PREFIX") + "/model.pkl"
                 
                 if not s3_bucket:
                     print("S3_BUCKET_NAME not set. Skipping S3 upload.")
@@ -263,24 +210,30 @@ jobs:
                     's3',
                     aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
                     aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
-                    region_name=os.environ.get("AWS_REGION", "us-east-1")
+                    region_name=os.environ.get("AWS_REGION")
                 )
                 
                 # Create a temporary file
-                with tempfile.NamedTemporaryFile() as tmp:
+                with tempfile.NamedTemporaryFile(delete=False) as tmp:
                     # Write model data to the temp file
-                    with open(tmp.name, 'wb') as f:
-                        f.write(model_data)
-                    
-                    # Upload to S3
-                    s3_client.upload_file(
-                        tmp.name,
-                        s3_bucket,
-                        s3_key
-                    )
-                
-                print(f"SUCCESS: Uploaded model.pkl to S3")
-                print(f"S3 Location: s3://{s3_bucket}/{s3_key}")
+                    tmp_name = tmp.name
+                    # Write directly to the already-open file
+                    tmp.write(model_data)
+                    # Ensure data is flushed to disk
+                    tmp.flush()
+
+                    try:
+                        # Upload to S3
+                        s3_client.upload_file(
+                            tmp.name,
+                            s3_bucket,
+                            s3_key
+                        )
+                        print(f"SUCCESS: Uploaded model.pkl to S3")
+                        print(f"S3 Location: s3://{s3_bucket}/{s3_key}")
+                    finally:
+                        # Clean up the temp file
+                        os.unlink(tmp_name)
                 return True
             except Exception as e:
                 print(f"Error uploading to S3: {e}")
