@@ -173,23 +173,23 @@ jobs:
                 print(f"\nNo models found with metric '{target_metric}' across all final evaluation runs.")
                 return None, None, None
 
-            def find_and_download_model_file(run_id):
-                """Find and download model.pkl file from the run artifacts"""
-                if not run_id:
-                    return None
-                
-                try:
-                    client = MlflowClient()
-                    with tempfile.TemporaryDirectory() as temp_dir:
-                        temp_path = Path(temp_dir)
-                        download_path = client.download_artifacts(run_id, "final_model/model.pkl", dst_path=str(temp_path))
-                        downloaded_file = Path(download_path)
-                        with open(downloaded_file, 'rb') as f:
-                            model_data = f.read()
-                            return model_data
-                except Exception as e:
-                    print(f"Error downloading model file: {e}")
-                    return None
+        def find_and_download_model_file(run_id):
+            """Find and download model.pkl file from the run artifacts"""
+            if not run_id:
+                return None
+            
+            try:
+                client = MlflowClient()
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    temp_path = Path(temp_dir)
+                    download_path = client.download_artifacts(run_id, "final_model/model.pkl", dst_path=str(temp_path))
+                    downloaded_file = Path(download_path)
+                    with open(downloaded_file, 'rb') as f:
+                        model_data = f.read()
+                        return model_data
+            except Exception as e:
+                print(f"Error downloading model file: {e}")
+                return None
 
         def upload_to_s3(model_data):
             """Upload the model data to S3"""
