@@ -155,15 +155,7 @@ jobs:
                         )
                         version = model_version.version
                         print(f"Successfully registered model version: {version}")
-                        
-                        # Register the model normally without promotion
-                        model_version = mlflow.register_model(
-                            model_uri=model_uri,
-                            name=model_name
-                        )
-                        version = model_version.version
-                        print(f"Successfully registered model version: {version}")
-                        
+                      
                         return best_run_id, model_name, version
                         
                 except Exception as e:
