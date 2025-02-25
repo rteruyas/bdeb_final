@@ -192,49 +192,122 @@ jobs:
                         try:
                             print(f"Listing artifacts for run {best_run_id}")
                             artifacts = mlflow.artifacts.list_artifacts(best_run_id)
-                            
-                            # Find model directory or model.pkl file
-                            model_artifact = None
+                            print(f"Found {len(artifacts)} artifacts at root level")
                             for artifact in artifacts:
-                                if artifact.path == "model" or artifact.path == "model.pkl":
-                                    model_artifact = artifact
-                                    break
+                                print(f"  - {artifact.path} ({'directory' if artifact.is_dir else 'file'})")
                             
-                            if model_artifact:
-                                print(f"Found model artifact: {model_artifact.path}")
-                                
-                                # Try to find the pkl file
-                                pkl_path = None
-                                
-                                if model_artifact.path == "model.pkl":
-                                    # Direct model.pkl file
-                                    pkl_path = model_artifact.path
-                                else:
-                                    # Model directory - need to search inside
-                                    model_contents = mlflow.artifacts.list_artifacts(best_run_id, model_artifact.path)
-                                    for item in model_contents:
-                                        # Look for data/model.pkl, model.pkl, or any .pkl file
-                                        if item.path.endswith(".pkl"):
-                                            pkl_path = item.path
-                                            print(f"Found model.pkl at: {pkl_path}")
+                            # First look for any .pkl files in the root
+                            pkl_files = [a for a in artifacts if a.path.endswith('.pkl')]
+                            if pkl_files:
+                                pkl_path = pkl_files[0].path
+                                print(f"Found PKL file at root level: {pkl_path}")
+                            else:
+                                # Then check common model directories
+                                model_dirs = [a for a in artifacts if a.is_dir and (a.path == 'model' or 'model' in a.path)]
+                                if model_dirs:
+                                    # Check each potential model directory
+                                    for model_dir in model_dirs:
+                                        print(f"Checking directory: {model_dir.path}")
+                                        try:
+                                            dir_contents = mlflow.artifacts.list_artifacts(best_run_id, model_dir.path)
+                                            for item in dir_contents:
+                                                print(f"  - {item.path} ({'directory' if item.is_dir else 'file'})")
+                                                
+                                                # Check if this is a PKL file
+                                                if item.path.endswith('.pkl'):
+                                                    pkl_path = item.path
+                                                    print(f"Found PKL file: {pkl_path}")
+                                                    break
+                                                    
+                                                # Look in data subdirectory if present
+                                                if item.is_dir and 'data' in item.path:
+                                                    try:
+                                                        data_contents = mlflow.artifacts.list_artifacts(best_run_id, item.path)
+                                                        for data_item in data_contents:
+                                                            print(f"    - {data_item.path} ({'directory' if data_item.is_dir else 'file'})")
+                                                            if data_item.path.endswith('.pkl'):
+                                                                pkl_path = data_item.path
+                                                                print(f"Found PKL file in data dir: {pkl_path}")
+                                                                break
+                                                    except Exception as e:
+                                                        print(f"Error listing data directory {item.path}: {e}")
+                                        except Exception as e:
+                                            print(f"Error listing directory {model_dir.path}: {e}")
+                                            
+                                        # If we found a PKL file, break out of the directory loop
+                                        if 'pkl_path' in locals() and pkl_path:
                                             break
-                                    
-                                    # If still not found, try to look in data/ subdirectory
-                                    if not pkl_path:
-                                        for item in model_contents:
-                                            if "data" in item.path and not item.is_dir:
-                                                data_dir = f"{model_artifact.path}/data"
-                                                try:
-                                                    data_contents = mlflow.artifacts.list_artifacts(best_run_id, data_dir)
-                                                    for data_item in data_contents:
-                                                        if data_item.path.endswith(".pkl"):
-                                                            pkl_path = data_item.path
-                                                            print(f"Found model.pkl in data directory: {pkl_path}")
-                                                            break
-                                                except Exception as e:
-                                                    print(f"Error listing data directory: {e}")
                                 
-                                if pkl_path:
+                                # If still nothing found, do an exhaustive search of all directories
+                                if 'pkl_path' not in locals() or not pkl_path:
+                                    print("No PKL file found in common locations. Doing exhaustive search...")
+                                    # Recursively check all directories
+                                    def search_dir_for_pkl(run_id, dir_path=""):
+                                        try:
+                                            contents = mlflow.artifacts.list_artifacts(run_id, dir_path)
+                                            for item in contents:
+                                                if item.path.endswith('.pkl'):
+                                                    return item.path
+                                                if item.is_dir:
+                                                    result = search_dir_for_pkl(run_id, item.path)
+                                                    if result:
+                                                        return result
+                                            return None
+                                        except Exception as e:
+                                            print(f"Error searching directory {dir_path}: {e}")
+                                            return None
+                                    
+                                    pkl_path = search_dir_for_pkl(best_run_id)
+                                    if pkl_path:
+                                        print(f"Found PKL file in exhaustive search: {pkl_path}")
+                            
+                                # If we couldn't find a PKL file, try to export the MLflow model
+                                if 'pkl_path' not in locals() or not pkl_path:
+                                    print("No PKL file found in artifacts. Attempting to download MLflow model folder...")
+                                    try:
+                                        # Download the entire model directory
+                                        model_download_path = mlflow.artifacts.download_artifacts(
+                                            artifact_uri=f"runs:/{best_run_id}/model",
+                                            dst_path=str(temp_path)
+                                        )
+                                        model_dir = Path(model_download_path)
+                                        
+                                        if model_dir.exists():
+                                            print(f"Successfully downloaded model directory to: {model_dir}")
+                                            
+                                            # Try to find any PKL files in the downloaded directory
+                                            pkl_files = list(model_dir.glob('**/*.pkl'))
+                                            if pkl_files:
+                                                output_file = temp_path / "model.pkl"
+                                                shutil.copy(pkl_files[0], output_file)
+                                                print(f"Found and copied PKL file to model.pkl: {pkl_files[0]}")
+                                            else:
+                                                # If no PKL file found, use MLflow to save the model
+                                                print("No PKL files found in model directory. Using MLflow to load and save model...")
+                                                try:
+                                                    # Try to load the MLflow model and save it in pickle format
+                                                    output_file = temp_path / "model.pkl"
+                                                    model = mlflow.pyfunc.load_model(f"runs:/{best_run_id}/model")
+                                                    mlflow.sklearn.save_model(model, path=str(temp_path / "sklearn_model"))
+                                                    
+                                                    # Find the saved model file
+                                                    new_pkl_files = list((temp_path / "sklearn_model").glob('**/*.pkl'))
+                                                    if new_pkl_files:
+                                                        shutil.copy(new_pkl_files[0], output_file)
+                                                        print(f"Successfully saved model as pickle: {output_file}")
+                                                    else:
+                                                        print("Failed to find PKL file after saving model")
+                                                        raise Exception("Could not create model.pkl file")
+                                                except Exception as e:
+                                                    print(f"Error saving model as pickle: {e}")
+                                                    raise Exception("Could not create model.pkl file")
+                                        else:
+                                            raise Exception("Failed to download model directory")
+                                    except Exception as e:
+                                        print(f"Error downloading model directory: {e}")
+                                        raise Exception("Could not find or create model.pkl file")
+                            
+                            # If we've found or created a PKL file, upload it to S3
                                     # Download the pkl file
                                     artifact_uri = f"runs:/{best_run_id}/{pkl_path}"
                                     output_file = temp_path / "model.pkl"
