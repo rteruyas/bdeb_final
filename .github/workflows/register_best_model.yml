@@ -1,4 +1,4 @@
-name: Register Best Model
+name: Register Best Model and Upload to S3
 
 on:
   # Run manually from the Actions tab
@@ -9,31 +9,36 @@ on:
   #   - cron: '0 0 * * *'
 
 jobs:
-  find-and-register-best-model:
+  find-register-and-upload-model:
     runs-on: ubuntu-latest
     
     steps:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10'
+        python-version: '3.12'
         
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install mlflow pandas
+        pip install mlflow pandas boto3
         
     - name: Create model registration script
       run: |
-        cat > register_best_model.py << 'EOL'
+        cat > register_and_upload_model.py << 'EOL'
         import os
         import mlflow
         from mlflow.tracking import MlflowClient
+        import boto3
+        from pathlib import Path
+        import tempfile
+        import shutil
 
-        def register_best_model():
+        def register_and_upload_model():
             """
             Search for all runs ending with 'final_evaluation' across all experiments,
-            find the best performing model based on accuracy, and register it to the MLflow Model Registry.
+            find the best performing model based on accuracy, register it to the MLflow Model Registry,
+            download the model.pkl file, and upload it to an S3 bucket.
             """
             # Set MLflow tracking URI from environment variable
             tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
@@ -104,14 +109,14 @@ jobs:
                             best_model_name = run_name
                             print(f"  New best model found: {run_name} with {target_metric}: {metric_value}")
             
-            # Register the best model
+            # Register the best model and upload to S3
             if best_run_id:
                 print(f"\nBest model found:")
                 print(f"  Model: {best_model_name}")
                 print(f"  {target_metric}: {best_metric_value}")
                 print(f"  Run ID: {best_run_id}")
                 
-                # Register the model directly from the run
+                # Step 1: Register the model in MLflow Registry
                 try:
                     print(f"\nRegistering model to MLflow Model Registry...")
                     client = MlflowClient()
@@ -174,22 +179,139 @@ jobs:
                     print(f"Run ID attempted: {best_run_id}")
                     print(f"Model URI attempted: {model_uri}")
                     raise
+                
+                # Step 2: Download model.pkl file
+                try:
+                    # Create a temporary directory to download the model
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        temp_path = Path(temp_dir)
+                        
+                        print(f"\nDownloading model.pkl file...")
+                        
+                        # First try to find where the model.pkl file is located
+                        try:
+                            print(f"Listing artifacts for run {best_run_id}")
+                            artifacts = mlflow.artifacts.list_artifacts(best_run_id)
+                            
+                            # Find model directory or model.pkl file
+                            model_artifact = None
+                            for artifact in artifacts:
+                                if artifact.path == "model" or artifact.path == "model.pkl":
+                                    model_artifact = artifact
+                                    break
+                            
+                            if model_artifact:
+                                print(f"Found model artifact: {model_artifact.path}")
+                                
+                                # Try to find the pkl file
+                                pkl_path = None
+                                
+                                if model_artifact.path == "model.pkl":
+                                    # Direct model.pkl file
+                                    pkl_path = model_artifact.path
+                                else:
+                                    # Model directory - need to search inside
+                                    model_contents = mlflow.artifacts.list_artifacts(best_run_id, model_artifact.path)
+                                    for item in model_contents:
+                                        # Look for data/model.pkl, model.pkl, or any .pkl file
+                                        if item.path.endswith(".pkl"):
+                                            pkl_path = item.path
+                                            print(f"Found model.pkl at: {pkl_path}")
+                                            break
+                                    
+                                    # If still not found, try to look in data/ subdirectory
+                                    if not pkl_path:
+                                        for item in model_contents:
+                                            if "data" in item.path and not item.is_dir:
+                                                data_dir = f"{model_artifact.path}/data"
+                                                try:
+                                                    data_contents = mlflow.artifacts.list_artifacts(best_run_id, data_dir)
+                                                    for data_item in data_contents:
+                                                        if data_item.path.endswith(".pkl"):
+                                                            pkl_path = data_item.path
+                                                            print(f"Found model.pkl in data directory: {pkl_path}")
+                                                            break
+                                                except Exception as e:
+                                                    print(f"Error listing data directory: {e}")
+                                
+                                if pkl_path:
+                                    # Download the pkl file
+                                    artifact_uri = f"runs:/{best_run_id}/{pkl_path}"
+                                    output_file = temp_path / "model.pkl"
+                                    
+                                    try:
+                                        # Download the specific file
+                                        download_path = mlflow.artifacts.download_artifacts(
+                                            artifact_uri=artifact_uri,
+                                            dst_path=str(temp_path)
+                                        )
+                                        downloaded_file = Path(download_path)
+                                        
+                                        # Make sure the file is named model.pkl
+                                        if downloaded_file.name != "model.pkl":
+                                            shutil.copy(downloaded_file, output_file)
+                                            print(f"Renamed to model.pkl: {str(output_file)}")
+                                        else:
+                                            output_file = downloaded_file
+                                            
+                                        print(f"Successfully downloaded model file to: {str(output_file)}")
+                                        
+                                        # Step 3: Upload to S3
+                                        s3_bucket = os.environ.get("S3_BUCKET_NAME")
+                                        s3_key = os.environ.get("S3_KEY_PREFIX", "models") + "/model.pkl"
+                                        
+                                        if s3_bucket:
+                                            print(f"\nUploading model.pkl to S3...")
+                                            s3_client = boto3.client(
+                                                's3',
+                                                aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID"),
+                                                aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY"),
+                                                region_name=os.environ.get("AWS_REGION", "us-east-1")
+                                            )
+                                            
+                                            s3_client.upload_file(
+                                                str(output_file),
+                                                s3_bucket,
+                                                s3_key
+                                            )
+                                            
+                                            print(f"SUCCESS: Uploaded model.pkl to S3")
+                                            print(f"S3 Location: s3://{s3_bucket}/{s3_key}")
+                                        else:
+                                            print("S3_BUCKET_NAME not set. Skipping S3 upload.")
+                                    except Exception as e:
+                                        print(f"Error downloading or uploading model file: {e}")
+                                else:
+                                    print("Could not find a .pkl file in the model artifacts")
+                            else:
+                                print("Could not find model directory or model.pkl in artifacts")
+                                
+                        except Exception as e:
+                            print(f"Error listing artifacts: {e}")
+                        
+                except Exception as e:
+                    print(f"Error downloading model: {str(e)}")
             else:
                 print(f"\nNo models found with metric '{target_metric}' across all final evaluation runs.")
 
         if __name__ == "__main__":
             try:
-                register_best_model()
+                register_and_upload_model()
             except Exception as e:
                 print(f"Error: {e}")
                 exit(1)
         EOL
       
-    - name: Run model registration
+    - name: Run model registration and S3 upload
       env:
         MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
         MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
         MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
         MODEL_NAME: "best_model"
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: ${{ secrets.AWS_REGION }}
+        S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+        S3_KEY_PREFIX: "mlflow-models"
       run: |
-        python register_best_model.py
+        python register_and_upload_model.py
