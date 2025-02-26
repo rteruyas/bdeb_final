@@ -15,3 +15,8 @@ troubleshooting/
 
 # keys
 config/credentials.yaml
+
+# Files not ready to be shared
+src/flask/*.bat
+src/flask/*.pem
+src/flask/*.ppk
