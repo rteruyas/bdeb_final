@@ -1,0 +1,93 @@
+openapi: 3.0.0
+info:
+  title: Model Prediction API
+  version: "1.0.0"
+  description: >
+    This API serves predictions for a machine learning model. 
+    It includes a health check endpoint (GET /) and a prediction endpoint (POST /predict).
+servers:
+  - url: http://localhost:5000
+paths:
+  /:
+    get:
+      summary: Health Check
+      description: Returns a simple message confirming the API is running.
+      responses:
+        '200':
+          description: API is running.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: API is running!
+  /predict:
+    post:
+      summary: Get Predictions
+      description: >
+        Accepts a JSON payload with the feature column names and data, 
+        and returns the model predictions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - columns
+                - data
+              properties:
+                columns:
+                  type: array
+                  description: List of feature names.
+                  items:
+                    type: string
+                  example:
+                    - air_temperature_k
+                    - rotational_speed_rpm
+                    - tool_wear_min
+                    - type_L
+                    - type_M
+                data:
+                  type: array
+                  description: >
+                    Two-dimensional array where each inner array contains feature values.
+                  items:
+                    type: array
+                    items:
+                      type: number
+                  example:
+                    - [ -0.8523973761276875, 0.4307563428376032, 1.3675990862527267, 1.2909944487358056, 0 ]
+      responses:
+        '200':
+          description: Successful prediction response.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  predictions:
+                    type: array
+                    description: The list of model predictions.
+                    items:
+                      type: number
+                    example:
+                      - 0
+        '400':
+          description: Bad Request. Missing required keys.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+                    example: Both 'columns' and 'data' keys are required.
+        '500':
+          description: Internal Server Error.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
