@@ -22,4 +22,4 @@ src/flask/*.pem
 src/flask/*.ppk
 
 # Presentations
-presentations/
+presentation/
