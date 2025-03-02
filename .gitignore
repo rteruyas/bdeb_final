@@ -20,3 +20,6 @@ config/credentials.yaml
 src/flask/*.bat
 src/flask/*.pem
 src/flask/*.ppk
+
+# Presentations
+presentations/
