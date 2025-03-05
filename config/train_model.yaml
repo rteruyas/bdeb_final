@@ -6,10 +6,9 @@ train_model:
   training_status_file: training_status.json
   model_metrics_file: model_metrics.json
 
-  # Model selection
-############################################
-# Logistic Regression model
-############################################
+  ############################################
+  # Logistic Regression model
+  ############################################
   logistic_regression:
     model_name: 'LogisticRegression'
     enabled: true
@@ -27,14 +26,13 @@ train_model:
     
     # Hyperparameter tuning settings 
     tuning:
-      cv: 5
-      n_jobs: -1
-      scoring: accuracy
-
-
-############################################
-# Decision Tree model
-############################################
+      cv: 5                               # Number of cross-validation folds
+      n_jobs: -1                          # Number of jobs to run in parallel
+      scoring: f1_score                   # Scoring metric
+        
+  ############################################
+  # Decision Tree model
+  ############################################
   decision_tree:
     model_name: 'DecisionTreeClassifier'
     enabled: true
@@ -44,21 +42,20 @@ train_model:
     # Parameter grid for hyperparameter tuning
     param_grid:
       criterion: ['gini', 'entropy']
-      max_depth: [3, 5]                             #[3, 5, 7, 10, None]
-      min_samples_split: [2, 5]                     #[2, 5, 10]
-      min_samples_leaf: [1]                         #[1, 2, 4]
+      max_depth: [3, 5]                   #[3, 5, 7, 10, None]
+      min_samples_split: [2, 5]           #[2, 5, 10]
+      min_samples_leaf: [1]               #[1, 2, 4]
       random_state: [42]
     
     # Hyperparameter tuning settings
     tuning:
-      scoring: 'accuracy'
-      cv: 5
-      n_jobs: -1
+      cv: 5                               # Number of cross-validation folds
+      n_jobs: -1                          # Number of jobs to run in parallel
+      scoring: f1_score                   # Scoring metric
 
-
-############################################
-# Random Forest Model
-############################################
+  ############################################
+  # Random Forest Model
+  ############################################
   random_forest:
     model_name: 'RandomForestClassifier'
     enabled: true
@@ -67,16 +64,16 @@ train_model:
 
     # Parameter grid for hyperparameter tuning
     param_grid:
-      n_estimators: [50]                    # [50, 100, 200]
-      criterion: ['gini', 'entropy']        # ['gini', 'entropy']
-      max_depth: [3, 10]                    # [3, 5, 7, 10, None]
-      min_samples_split: [2, 5, 10]         # [2, 5, 10]
-      min_samples_leaf: [4]                 # [1, 2, 4]       
-      max_features: ['sqrt', 'log2']        # ['sqrt', 'log2']
+      n_estimators: [50]                  # [50, 100, 200]
+      criterion: ['gini', 'entropy']      # ['gini', 'entropy']
+      max_depth: [3, 10]                  # [3, 5, 7, 10, None]
+      min_samples_split: [2, 5, 10]       # [2, 5, 10]
+      min_samples_leaf: [4]               # [1, 2, 4]       
+      max_features: ['sqrt', 'log2']      # ['sqrt', 'log2']
       random_state: [42]
     
     # Hyperparameter tuning settings
     tuning:
-      scoring: 'accuracy'
-      cv: 5
-      n_jobs: -1
+      cv: 5                               # Number of cross-validation folds
+      n_jobs: -1                          # Number of jobs to run in parallel
+      scoring: f1_score                   # Scoring metric

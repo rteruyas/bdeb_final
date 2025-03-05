@@ -81,8 +81,8 @@ stages:
       size: 301
     - path: config/train_model.yaml
       hash: md5
-      md5: f32b5290a9c3222bb94794dc041860ec
-      size: 2776
+      md5: 82402fb5dc69b4963c17a1052ec760dd
+      size: 3214
     - path: data/test_data.csv
       hash: md5
       md5: eec9efa43296a83bb069041034684a63
@@ -165,7 +165,7 @@ stages:
       size: 1217
     - path: metrics/training_status.json
       hash: md5
-      md5: f31dc8b7745dc526178da989c2cb2167
+      md5: ce4bb89b088c1aecafb1e56a6201df5c
       size: 415
     - path: models/
       hash: md5

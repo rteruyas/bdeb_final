@@ -28,7 +28,7 @@ Ce projet implémente un pipeline de machine learning prêt pour la production p
 ```	
 ├── .github/                     			# Workflows GitHub Actions
 │   └── workflows/                          
-│       ├── register_and_upload_model.yml	# Enregistrer le meilleur modèle et le télécharger dans le stockage s3
+│       ├── register_and_upload_model.yml   # Enregistrer le meilleur modèle et le télécharger dans le stockage s3
 ├── config/                      			# Fichiers de configuration
 │   ├── general.yaml             			# Configuration générale du projet
 │   ├── preprocessing.yaml       			# Paramètres de prétraitement
